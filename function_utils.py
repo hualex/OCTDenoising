@@ -75,3 +75,5 @@ def Im2Patch(img, win, stride=1):
             k = k + 1
     return Y.reshape([endc, win, win, TotalPatNum])
 
+
+

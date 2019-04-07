@@ -11,6 +11,11 @@ import torch.utils.data as udata
 def normalize(data):
     return data/255.
 
+def swapaxies(img):
+    img = img.swapaxes(1, 2).swapaxes(0,1)
+    return img
+
+
 def Im2Patch(img, win, stride=1):
     k = 0
     endc = img.shape[0]
@@ -69,8 +74,9 @@ def prepare_data(data_path, patch_size, stride, aug_times=1):
     print('val set, # samples %d\n' % val_num)
 
 class Dataset(udata.Dataset):
-    def __init__(self, train=True):
+    def __init__(self, train=True,transform = None):
         super(Dataset, self).__init__()
+        self.transform = transform        
         self.train = train
         if self.train:
             h5f = h5py.File('train.h5', 'r')
@@ -88,5 +94,30 @@ class Dataset(udata.Dataset):
             h5f = h5py.File('val.h5', 'r')
         key = self.keys[index]
         data = np.array(h5f[key])
+        data = swapaxies(normalize(data))
         h5f.close()
         return torch.Tensor(data)
+
+def generate_h5_file(pathname,file_format='jpeg',file_number=500,train=True):
+    dir_list = ['CNV','DME','DRUSEN','NORMAL']
+    files = []
+    for dir in dir_list:
+        tempfiles = glob.glob(os.path.join(pathname, dir, '*.'+file_format))
+        files.extend(tempfiles)
+    if train:
+        h5f = h5py.File('train.h5', 'w')
+    else:
+        h5f = h5py.File('val.h5', 'w')
+    print("total file number: ",len(files))
+    val_num = 0
+    sampled_files = random.sample(files,file_number)
+    for i in range(file_number):
+        print("file: %s" % sampled_files[i])
+        img = cv2.imread(sampled_files[i])
+        h5f.create_dataset(str(val_num), data=img)
+        val_num += 1
+    h5f.close()
+
+
+
+

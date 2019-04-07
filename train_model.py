@@ -15,12 +15,11 @@ for i in range(epoche_number):
     total_iter = 0
     j = 0
     autoencoder.train()
-    for image, label in dataset_train_loader:      
+    for image in dataset_train:      
         j+=1      
         #print('Batch iter: {} Beging traning GPU Memory allocated: {} MB'.format(j,torch.cuda.memory_allocated() / 1024**2))
         gpu_size.append(torch.cuda.memory_allocated() / 1024**2)
-        noise = torch.randn(image.shape[0], 3, 450, 450) * noise_level
-        image_n = torch.add(image, noise)
+        image_n = get_noisy_image(image,noise_level)
         image = Variable(image).cuda()
         image_n = Variable(image_n).cuda()
         #print('Batch iter: {} before training traning GPU Memory allocated: {} MB'.format(j,torch.cuda.memory_allocated() / 1024**2))
@@ -35,8 +34,7 @@ for i in range(epoche_number):
         #print('Batch iter: {} after training traning GPU Memory allocated: {} MB'.format(j,torch.cuda.memory_allocated() / 1024**2))
         gpu_size.append(torch.cuda.memory_allocated() / 1024**2)
         optimizer.step()
-        del image
-        del image_n
+
         
         total_iter += 1
         total_loss += loss.item()
@@ -49,14 +47,9 @@ for i in range(epoche_number):
     total_val_loss = 0.0
     total_val_iter = 0
     autoencoder.eval()
-    for image, label in dataset_valid_loader:
+    for image in dataset_valid:
         v_gpu_size.append(torch.cuda.memory_allocated() / 1024**2)
-      
-      
-        
-        noise = torch.randn(image.shape[0], 3, 450, 450) * noise_level
-        image_n = torch.add(image, noise)
-        
+        image_n = get_noisy_image(image,noise_level)
         image = Variable(image).cuda()
         image_n = Variable(image_n).cuda()
         #print('Eval GPU Memory allocated: {} MB'.format(torch.cuda.memory_allocated() / 1024**2))
@@ -64,9 +57,6 @@ for i in range(epoche_number):
         
         output = autoencoder(image_n)
         loss = loss_func(output, image)
-        
-        del image
-        del image_n
         
         total_val_iter += 1
         total_val_loss += loss.detach().item()
