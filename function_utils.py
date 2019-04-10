@@ -6,6 +6,10 @@ from torchvision import transforms
 
 
 def show_img(orig, noisy, denoised):
+    """
+    show original image, noisy image and denoised image for comparison purposes
+
+    """
     fig=plt.figure()
     ### for 3 channel image
     orig = orig.swapaxes(0, 1).swapaxes(1, 2)
@@ -38,6 +42,10 @@ def show_img(orig, noisy, denoised):
 
 
 def get_dataset(image_path,crop_size,train_size,test_size,batch_size=10):
+    """
+    get image patch dataset through centercrop 
+    
+    """
     transform=transforms.Compose([
         transforms.CenterCrop(crop_size),
         transforms.ToTensor()])

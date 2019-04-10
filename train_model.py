@@ -1,8 +1,8 @@
-
-
 train_loss = []
 valid_loss = []
 time_epoch = []
+train_psnr = []
+valid_psnr = []
 gpu_size = []
 v_gpu_size = []
 
@@ -19,7 +19,9 @@ for i in range(epoche_number):
         j+=1      
         #print('Batch iter: {} Beging traning GPU Memory allocated: {} MB'.format(j,torch.cuda.memory_allocated() / 1024**2))
         gpu_size.append(torch.cuda.memory_allocated() / 1024**2)
-        image_n = get_noisy_image(image,noise_level)
+        image = image.resize_(1,image.shape[0],image.shape[1],image.shape[2])        
+        noise = torch.randn(1,image.shape[1],image.shape[2],image.shape[3])*noise_level
+        image_n = torch.add(image,noise)
         image = Variable(image).cuda()
         image_n = Variable(image_n).cuda()
         #print('Batch iter: {} before training traning GPU Memory allocated: {} MB'.format(j,torch.cuda.memory_allocated() / 1024**2))
@@ -47,9 +49,11 @@ for i in range(epoche_number):
     total_val_loss = 0.0
     total_val_iter = 0
     autoencoder.eval()
-    for image in dataset_valid:
+    for image in dataset_val:
         v_gpu_size.append(torch.cuda.memory_allocated() / 1024**2)
-        image_n = get_noisy_image(image,noise_level)
+        image = image.resize_(1,image.shape[0],image.shape[1],image.shape[2])
+        noise = torch.randn(1,image.shape[1],image.shape[2],image.shape[3])*noise_level
+        image_n = torch.add(image,noise)
         image = Variable(image).cuda()
         image_n = Variable(image_n).cuda()
         #print('Eval GPU Memory allocated: {} MB'.format(torch.cuda.memory_allocated() / 1024**2))
@@ -62,7 +66,7 @@ for i in range(epoche_number):
         total_val_loss += loss.detach().item()
         v_gpu_size.append(torch.cuda.memory_allocated() / 1024**2)
         
-    
+        
     train_loss.append(total_loss / total_iter)
     valid_loss.append(total_val_loss / total_val_iter)
     e = time.time()
