@@ -5,6 +5,28 @@ from torchvision import datasets
 from torchvision import transforms
 
 
+def show_vae_img(orig,noisy,denoised,image_shape):
+    """
+
+    """
+    orig = np.reshape(orig,image_shape)
+    noisy = np.reshape(noisy,image_shape)
+    denoised = np.reshape(denoised,image_shape)
+    orig     = (orig - orig.min()) / (orig.max() - orig.min())
+    noisy    = (noisy - noisy.min()) / (noisy.max() - noisy.min())
+    denoised = (denoised - denoised.min()) / (denoised.max() - denoised.min())
+    fig=plt.figure()
+
+    
+    fig.add_subplot(1, 3, 1, title='Original')
+    plt.imshow(orig,cmap='gray')
+    
+    fig.add_subplot(1, 3, 2, title='Noisy')
+    plt.imshow(noisy,cmap = 'gray')
+    
+    fig.add_subplot(1, 3, 3, title='Denoised')
+    plt.imshow(denoised,cmap = 'gray')
+
 def show_img(orig, noisy, denoised):
     """
     show original image, noisy image and denoised image for comparison purposes
@@ -41,13 +63,13 @@ def show_img(orig, noisy, denoised):
     #plt.show()
 
 
-def get_dataset(image_path,crop_size,train_size,test_size,batch_size=10):
+def get_dataset(image_path,crop_size,train_size,test_size,batch_size=10,number_output_channels=3):
     """
     get image patch dataset through centercrop 
     
     """
     transform=transforms.Compose([
-        transforms.CenterCrop(crop_size),
+        transforms.CenterCrop(crop_size), 
         transforms.ToTensor()])
     total_dataset = datasets.ImageFolder(image_path,transform=transform)
     train_dataset, test_dataset, val_dataset = torch.utils.data.random_split(total_dataset,
@@ -61,6 +83,27 @@ def get_dataset(image_path,crop_size,train_size,test_size,batch_size=10):
     return dataset_train_loader,dataset_test_loader,dataset_valid_loader
 
 
+
+def get_dataset_vae(image_path,crop_size,train_size,test_size,batch_size=10,number_output_channels=3):
+    """
+    get image patch dataset through centercrop 
+    
+    """
+    transform=transforms.Compose([
+        transforms.Grayscale(num_output_channels=1),
+        transforms.CenterCrop(crop_size), 
+        transforms.ToTensor(),
+        transforms.Lambda(lambda x:x.view(-1)) ])
+    total_dataset = datasets.ImageFolder(image_path,transform=transform)
+    train_dataset, test_dataset, val_dataset = torch.utils.data.random_split(total_dataset,
+    [train_size, test_size,len(total_dataset)-train_size-test_size])
+    dataset_train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, 
+    shuffle=True, num_workers=1)
+    dataset_test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, 
+    shuffle=True, num_workers=1)
+    dataset_valid_loader = torch.utils.data.DataLoader(val_dataset,batch_size=batch_size,
+    shuffle=True,num_workers=1)
+    return dataset_train_loader,dataset_test_loader,dataset_valid_loader
 # To test
 #o = oct_train_dataset[80]
 #a,b,c = o[0].size()
