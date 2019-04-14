@@ -1,8 +1,31 @@
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
+from PIL import Image
 from torchvision import datasets
 from torchvision import transforms
+from scipy import ndimage
+
+
+class Preprocessing(object):
+
+    def __call__(self, sample):
+               
+        img = self.rgb2gray(np.asarray(sample))
+        img_mean_map ,img_dev_map =self.get_local_map(img)
+        result=(img-img_mean_map)/img_dev_map
+        return Image.fromarray(np.uint8(img))
+
+    def rgb2gray(self,rgb):
+        return np.dot(rgb[...,:3], [0.2989, 0.5870, 0.1140])
+
+    def get_local_map(self,img, kernel_size =3):
+        
+        img_local_mean_map = ndimage.uniform_filter(img,size=kernel_size,mode="reflect")
+        img_sqr_map = ndimage.uniform_filter(img**2,size=kernel_size,mode="reflect")
+        img_local_var_map = img_sqr_map-img_local_mean_map**2 
+        img_local_std_map = np.sqrt(img_local_var_map)
+        return img_local_mean_map,img_local_std_map
 
 
 def show_vae_img(orig,noisy,denoised,image_shape):
@@ -69,7 +92,9 @@ def get_dataset(image_path,crop_size,train_size,test_size,batch_size=10,number_o
     
     """
     transform=transforms.Compose([
-        transforms.CenterCrop(crop_size), 
+        
+        transforms.CenterCrop(crop_size),
+        Preprocessing(),
         transforms.ToTensor()])
     total_dataset = datasets.ImageFolder(image_path,transform=transform)
     train_dataset, test_dataset, val_dataset = torch.utils.data.random_split(total_dataset,
@@ -128,3 +153,6 @@ def Im2Patch(img, win, stride=1):
 
 
 
+
+
+        
