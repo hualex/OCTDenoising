@@ -85,7 +85,7 @@ class Dataset(udata.Dataset):
         self.keys = list(h5f.keys())
         random.shuffle(self.keys)
         h5f.close()
-    def __len__(self):
+    def __len__(self):        
         return len(self.keys)
     def __getitem__(self, index):
         if self.train:
@@ -93,17 +93,21 @@ class Dataset(udata.Dataset):
         else:
             h5f = h5py.File('val.h5', 'r')
         key = self.keys[index]
-        data = np.array(h5f[key])
+        data_key ='data'
+        label_key ='label'
+        data = np.array(h5f[key][data_key])
         data = swapaxies(normalize(data))
+        label = np.array(h5f[key][label_key])
         h5f.close()
-        return torch.Tensor(data)
+        return torch.Tensor(data),label
 
 def generate_h5_file(pathname,file_format='jpeg',file_number=500,train=True):
     dir_list = ['CNV','DME','DRUSEN','NORMAL']
     files = []
     for dir in dir_list:
         tempfiles = glob.glob(os.path.join(pathname, dir, '*.'+file_format))
-        files.extend(tempfiles)
+        for tempfile in tempfiles:
+            files.append((tempfile,dir))
     if train:
         h5f = h5py.File('train.h5', 'w')
     else:
@@ -111,11 +115,22 @@ def generate_h5_file(pathname,file_format='jpeg',file_number=500,train=True):
     print("total file number: ",len(files))
     val_num = 0
     sampled_files = random.sample(files,file_number)
-    for i in range(file_number):
-        print("file: %s" % sampled_files[i])
-        img = cv2.imread(sampled_files[i])
-        h5f.create_dataset(str(val_num), data=img)
+    #label_list = np.zeros((file_number,), dtype=int)
+    #img_data = []
+    #com_type = np.dtype([('img_data',np.float),('label','i')])
+    for i in range(len(sampled_files)):
+        file_with_label = sampled_files[i]
+        img = cv2.imread(file_with_label[0])
+        label = dir_list.index(file_with_label[1])
+        print(label)
+        #label_list[i]=label
+        #img_data.append(file_with_label[0]) 
+        g = h5f.create_group(str(val_num))                        
+        g.create_dataset('data', data=img)
+        g.create_dataset('label', data=label,dtype=np.intp)      
+    
         val_num += 1
+   
     h5f.close()
 
 
@@ -196,3 +211,13 @@ def resume_checkpoint(resume_weights):
     best_accuracy = checkpoint['best_accuracy']
     model.load_state_dict(checkpoint['state_dict'])
     print("=> loaded checkpoint '{}' (trained for {} epochs)".format(resume_weights, checkpoint['epoch']))
+
+
+dir_list = ['CNV','DME','DRUSEN','NORMAL']
+#dir_num = [1,2, 3,4 ]
+tstlist = ['sdfsfe']
+n = np.random.permutation(4)
+
+label = dir_list.index('DME')
+newlist=[tstlist,dir_list[0]]
+print(newlist[1])

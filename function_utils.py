@@ -94,7 +94,7 @@ def get_dataset(image_path,crop_size,train_size,test_size,batch_size=10,number_o
     transform=transforms.Compose([
         
         transforms.CenterCrop(crop_size),
-        Preprocessing(),
+        #Preprocessing(),
         transforms.ToTensor()])
     total_dataset = datasets.ImageFolder(image_path,transform=transform)
     train_dataset, test_dataset, val_dataset = torch.utils.data.random_split(total_dataset,

@@ -4,23 +4,25 @@ import torch.nn as nn
 
 class DenoisingAutoencoder(nn.Module):
     
-    def __init__(self):
+    def __init__(self,depth = 3):
     
         super(DenoisingAutoencoder, self).__init__()
         image_channels =3
         kernel_size =3
-        padding =2
+        padding =1
         encoder_layers = []
         decoder_layers = []
+        channnel_num = [2**(depth-i+3) for i in range(depth)]
+        
         #channel_size_list = [image_channels,12, 24, 48]
-        channel_size_list = [image_channels,48, 24, 12]
+        channel_size_list = [image_channels] + channnel_num
         convlayer_numbers = len(channel_size_list)-1
 
         # Encoder laysers
 
         for i in range(convlayer_numbers):
-            encoder_layers.append(nn.Conv2d(in_channels=channel_size_list[i], out_channels = channel_size_list[i+1],kernel_size=kernel_size,padding= padding,stride=2))
-            encoder_layers.append(nn.ReLU(inplace=True))
+            encoder_layers.append(nn.Conv2d(in_channels=channel_size_list[i], out_channels = channel_size_list[i+1],kernel_size=kernel_size,padding= padding,stride=1))
+            #encoder_layers.append(nn.ReLU(inplace=True))
 
         self.encoder = nn.Sequential(*encoder_layers)
 
@@ -37,7 +39,7 @@ class DenoisingAutoencoder(nn.Module):
 
         for j in range(convlayer_numbers):
             k = convlayer_numbers-j
-            decoder_layers.append(nn.ConvTranspose2d(in_channels=channel_size_list[k], out_channels = channel_size_list[k-1],kernel_size=kernel_size,padding= padding,stride=2))
+            decoder_layers.append(nn.ConvTranspose2d(in_channels=channel_size_list[k], out_channels = channel_size_list[k-1],kernel_size=kernel_size,padding= padding,stride=1))
             decoder_layers.append(nn.ReLU(inplace=True))
 
         self.decoder = nn.Sequential(*decoder_layers)
@@ -108,3 +110,12 @@ class VAE(nn.Module):
         h = nn.functional.relu(self.fc4(z))
         x_reconst = nn.functional.sigmoid(self.fc5(h))
         return  x_reconst,mu, logvar 
+
+if __name__ == "__main__":
+    depth = 7
+    channnel_num = [2**(depth-i+3) for i in range(depth)]
+    image_channels = 3
+    combine = [image_channels]+channnel_num
+    print(combine)
+
+    
