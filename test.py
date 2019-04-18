@@ -8,12 +8,7 @@ import cv2
 import glob
 import torch.utils.data as udata
 
-def normalize(data):
-    return data/255.
 
-def swapaxies(img):
-    img = img.swapaxes(1, 2).swapaxes(0,1)
-    return img
 
 
 def Im2Patch(img, win, stride=1):
@@ -78,6 +73,7 @@ class Dataset(udata.Dataset):
         super(Dataset, self).__init__()
         self.transform = transform        
         self.train = train
+
         if self.train:
             h5f = h5py.File('train.h5', 'r')
         else:
@@ -87,6 +83,7 @@ class Dataset(udata.Dataset):
         h5f.close()
     def __len__(self):        
         return len(self.keys)
+
     def __getitem__(self, index):
         if self.train:
             h5f = h5py.File('train.h5', 'r')
@@ -96,10 +93,19 @@ class Dataset(udata.Dataset):
         data_key ='data'
         label_key ='label'
         data = np.array(h5f[key][data_key])
-        data = swapaxies(normalize(data))
+        data = torch.Tensor(self.swapaxies(self.normalize(data)))
+        if self.transform:
+            data = self.transform(data)
         label = np.array(h5f[key][label_key])
         h5f.close()
-        return torch.Tensor(data),label
+        return data,label
+
+    def normalize(self,data):
+        return data/255.
+
+    def swapaxies(self,img):
+        img = img.swapaxes(0, 2)
+        return img
 
 def generate_h5_file(pathname,file_format='jpeg',file_number=500,train=True):
     dir_list = ['CNV','DME','DRUSEN','NORMAL']

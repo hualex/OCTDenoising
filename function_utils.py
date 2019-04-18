@@ -1,6 +1,10 @@
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
+import h5py
+import cv2
+import glob
+import torch.utils.data as udata
 from PIL import Image
 from torchvision import datasets
 from torchvision import transforms
@@ -150,6 +154,78 @@ def Im2Patch(img, win, stride=1):
             Y[:,k,:] = np.array(patch[:]).reshape(endc, TotalPatNum)
             k = k + 1
     return Y.reshape([endc, win, win, TotalPatNum])
+
+def generate_h5_file(pathname,file_format='jpeg',file_number=500,train=True):
+    dir_list = ['CNV','DME','DRUSEN','NORMAL']
+    files = []
+    for dir in dir_list:
+        tempfiles = glob.glob(os.path.join(pathname, dir, '*.'+file_format))
+        for tempfile in tempfiles:
+            files.append((tempfile,dir))
+    if train:
+        h5f = h5py.File('train.h5', 'w')
+    else:
+        h5f = h5py.File('val.h5', 'w')
+    print("total file number: ",len(files))
+    val_num = 0
+    sampled_files = random.sample(files,file_number)
+    #label_list = np.zeros((file_number,), dtype=int)
+    #img_data = []
+    #com_type = np.dtype([('img_data',np.float),('label','i')])
+    for i in range(len(sampled_files)):
+        file_with_label = sampled_files[i]
+        img = cv2.imread(file_with_label[0])
+        label = dir_list.index(file_with_label[1])
+        print(label)
+        #label_list[i]=label
+        #img_data.append(file_with_label[0]) 
+        g = h5f.create_group(str(val_num))                        
+        g.create_dataset('data', data=img)
+        g.create_dataset('label', data=label,dtype=np.intp)      
+    
+        val_num += 1
+   
+    h5f.close()
+
+
+class Dataset(udata.Dataset):
+    def __init__(self, train=True,transform = None):
+        super(Dataset, self).__init__()
+        self.transform = transform        
+        self.train = train
+
+        if self.train:
+            h5f = h5py.File('train.h5', 'r')
+        else:
+            h5f = h5py.File('val.h5', 'r')
+        self.keys = list(h5f.keys())
+        random.shuffle(self.keys)
+        h5f.close()
+    def __len__(self):        
+        return len(self.keys)
+
+    def __getitem__(self, index):
+        if self.train:
+            h5f = h5py.File('train.h5', 'r')
+        else:
+            h5f = h5py.File('val.h5', 'r')
+        key = self.keys[index]
+        data_key ='data'
+        label_key ='label'
+        data = np.array(h5f[key][data_key])
+        data = torch.Tensor(self.swapaxies(self.normalize(data)))
+        if self.transform:
+            data = self.transform(data)
+        label = np.array(h5f[key][label_key])
+        h5f.close()
+        return data,label
+
+    def normalize(self,data):
+        return data/255.
+
+    def swapaxies(self,img):
+        img = img.swapaxes(0, 2)
+        return img
 
 
 
