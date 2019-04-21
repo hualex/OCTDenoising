@@ -4,10 +4,9 @@ import torch.nn as nn
 
 class DenoisingAutoencoder(nn.Module):
     
-    def __init__(self,depth = 3):
+    def __init__(self,depth = 3,image_channels=3):
     
         super(DenoisingAutoencoder, self).__init__()
-        image_channels =3
         kernel_size =3
         padding =1
         encoder_layers = []

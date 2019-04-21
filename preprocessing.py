@@ -13,7 +13,7 @@ def get_local_map(img, kernel_size =3):
     img_local_mean_map = ndimage.uniform_filter(img,size=kernel_size,mode="reflect")
     img_sqr_map = ndimage.uniform_filter(img**2,size=kernel_size,mode="reflect")
     img_local_var_map = img_sqr_map-img_local_mean_map**2 
-    img_local_std_map = np.sqrt(img_local_var_map)
+    img_local_std_map = np.sqrt(img_local_var_map)    
     return img_local_mean_map,img_local_std_map
     
     
