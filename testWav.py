@@ -1,4 +1,8 @@
 
+import torch
+from torch.utils.data import DataLoader
+from torchvision.datasets import ImageFolder
+from torchvision import transforms
 import matplotlib.pyplot as plt
 import pywt
 import heapq
@@ -49,7 +53,7 @@ print(merge_two_dicts(x,y))
 """
 
 
-def top_ten_wrt_psnr(img, sigma=0.1, n_largest=3):
+def top_ten_wrt_psnr(img, wave_list, sigma=0.1, n_largest=3):
     original = img_as_float(img)
     noisy = random_noise(original, var=sigma**2)
 
@@ -58,11 +62,6 @@ def top_ten_wrt_psnr(img, sigma=0.1, n_largest=3):
     # max_shift = 1 -> shifts of (0, 1) along each axis
     # max_shift = 3 -> shifts of (0, 1, 2, 3) along each axis
     # etc...
-
-    wave_list = []
-    dwave_families = ['haar', 'db', 'sym', 'coif', 'bior', 'rbio']
-    for wave in dwave_families:
-        wave_list = wave_list+pywt.wavelist(wave)
     psnr_data = []
 
     for wave in wave_list:
@@ -87,53 +86,69 @@ def top_ten_wrt_psnr(img, sigma=0.1, n_largest=3):
     return name_wave_p
 
 
+def denoising_with_wave(wave, img, sigma=0.1):
+    original = img_as_float(img)
+    noisy = random_noise(original, var=sigma**2)
+    denoise_kwargs = dict(multichannel=False,
+                          convert2ycbcr=False, wavelet=wave)
+    all_psnr = []
+    max_shifts = [0, 1, 3, 5]
+    for n, s in enumerate(max_shifts):
+        im_bayescs = cycle_spin(noisy, func=denoise_wavelet,
+                                max_shifts=s, func_kw=denoise_kwargs, multichannel=True)
+        psnr = compare_psnr(original, im_bayescs)
+        all_psnr.append(psnr)
+
+    return (wave, all_psnr)
+
+
 if __name__ == "__main__":
-    os.chdir(r"C:\Users\Hualex\Google Drive\OCT2017\test\CNV")
+    # os.chdir(r"C:\Users\Hualex\Google Drive\OCT2017\test\CNV")
+    # pathname='./gdrive/My Drive/OCT2017/test/DME/*.jpeg'
+    #files = glob.glob(pathname)
+    #print('flie number:', len(files))
     name_dict = {}
     name_dict_second = {}
     name_dict_third = {}
-    clear_flag = 0
-    name_list = []
-    for file in glob.glob("*.jpeg"):
-        image = io.imread(file)
-        print(type(image))
+    i = 0
+    pathname = './gdrive/My Drive/OCT2017/test/'
+    T = transforms.Compose([transforms.Grayscale(),
+                            transforms.CenterCrop(450),
+                            transforms.ToTensor()])
+    dataset = ImageFolder(pathname, transform=T)
+    dataloder = DataLoader(dataset, batch_size=10, shuffle=True, num_workers=2)
+    wave_list = []
+    dwave_families = ['haar', 'db', 'sym', 'coif', 'bior', 'rbio']
+    for wave in dwave_families:
+        wave_list = wave_list+pywt.wavelist(wave)
+    i = 0
+    for data in dataloder:
         s = time.time()
-        if clear_flag == 10:
-            # print(len(name_list))
-            print([row[1] for row in name_list])
-            name_dict = combine_dicts(CountFrequency(
-                [row[0] for row in name_list]), name_dict)
-            name_dict_second = combine_dicts(CountFrequency(
-                [row[1] for row in name_list]), name_dict_second)
-            name_dict_third = combine_dicts(CountFrequency(
-                [row[2] for row in name_list]), name_dict_third)
-            name_list = []
-            clear_flag = 0
-            print("elapsed time for 10 image:", time.time()-s)
-            s = time.time()
-        p_list = np.random.randint(10, size=10)
-        # p_list = top_ten_wrt_psnr(image)
-        name_list.append(p_list.tolist())
-        # print(name_list)
-        clear_flag = clear_flag+1
-    name_dict = combine_dicts(CountFrequency(
-        [row[0] for row in name_list]), name_dict)
-    name_dict_second = combine_dicts(CountFrequency(
-        [row[1] for row in name_list]), name_dict_second)
-    name_dict_third = combine_dicts(CountFrequency(
-        [row[2] for row in name_list]), name_dict_third)
+        if i == 3:
+            break
+        imgs = data[0].numpy()
+        name_list = []
+        for img in imgs:
+            image = np.squeeze(img)
+            # plt.imshow(image)
+            # plt.show()
+            # print(image)
+            p_list = top_ten_wrt_psnr(image, wave_list)
+            name_list.append(p_list)
+        name_dict = combine_dicts(CountFrequency(
+            [row[0] for row in name_list]), name_dict)
+        name_dict_second = combine_dicts(CountFrequency(
+            [row[1] for row in name_list]), name_dict_second)
+        name_dict_third = combine_dicts(CountFrequency(
+            [row[2] for row in name_list]), name_dict_third)
+        i = i+1
+        print("Processin Time for 10 Images:", time.time()-s)
     scale_dicts_with_factor(name_dict_second, 0.3)
     scale_dicts_with_factor(name_dict, 0.5)
     scale_dicts_with_factor(name_dict_third, 0.2)
     tempd = combine_dicts(name_dict, name_dict_second)
     tempd = combine_dicts(tempd, name_dict_third)
-    print(tempd)
-    print(sum(tempd.values()))
 
     f1 = plt.figure()
     plt.bar(tempd.keys(), tempd.values(), color='g')
     plt.show()
-
-# todo test with
-
-
