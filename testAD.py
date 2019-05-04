@@ -4,10 +4,12 @@ import matplotlib.pyplot as plt
 import skimage
 
 from scipy.ndimage.filters import convolve
-
-from skimage.data import binary_blobs
+from skimage.data import binary_blobs, chelsea
 from skimage.exposure import rescale_intensity
 from skimage.util import random_noise
+from skimage.measure import compare_psnr, shannon_entropy, compare_mse, compare_nrmse
+from skimage.color import rgb2gray, label2rgb
+from skimage.restoration import estimate_sigma
 
 
 def g(gradient, mode=1, k=60):
@@ -47,21 +49,38 @@ def update_image(I, dmap, alpha=0.2, mode=1, k=50):
     return I+delta_I
 
 
-data = skimage.img_as_float(binary_blobs(length=128, seed=1))
-sigma = 0.35
-data = random_noise(data, var=sigma**2)*255
+data_orig = skimage.img_as_float(binary_blobs(length=128, seed=1))
+#data_orig = skimage.img_as_float(rgb2gray(chelsea()[100:250, 50:300]))
+#data_orig = skimage.img_as_float(skimage.io.imread('DME.jpeg'))
+
+sigma = 0.2
+data = random_noise(data_orig, var=sigma**2)*255
 # print(data)
 
 
 I = data
-for T in range(100):
+for T in range(10000):
+    if estimate_sigma(I/255.) <= estimate_sigma(data_orig) or compare_psnr(data_orig, I/255.) < compare_psnr(data_orig, data/255.):
+        print("t=", T)
+        break
     dmap = dmaps(I)
-    I = update_image(I, dmap, mode=4, k=60)
-
+    I = update_image(I, dmap, mode=2, k=50)
+plt.figure(figsize=(20, 20))
 plt.subplot(131)
-plt.imshow(skimage.img_as_float(binary_blobs(length=128, seed=1)), cmap='gray')
+plt.imshow(data_orig, cmap='gray')
 plt.subplot(132)
-plt.imshow(I, cmap='gray')
-plt.subplot(133)
 plt.imshow(data, cmap='gray')
+plt.subplot(133)
+plt.imshow(I, cmap='gray')
 plt.show()
+print(compare_psnr(data_orig, I/255.), compare_psnr(data_orig, data/255.))
+print(compare_mse(data_orig, I/255.), compare_mse(data_orig, data/255.))
+print(estimate_sigma(data/255.), estimate_sigma(data_orig), estimate_sigma(I/255.))
+
+
+"""
+Todo:
+1. Stopping time ?
+2. other g function ?
+3. optimum setting for alpha,k through machine learning ?
+"""
