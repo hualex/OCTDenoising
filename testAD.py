@@ -104,84 +104,129 @@ print(estimate_sigma(data/255.), estimate_sigma(data_orig), estimate_sigma(I/255
 """
 
 
-def imgradient(I):
-    a = (2-np.sqrt(2))/4
-    b = (np.sqrt(2)-1)/2
-    H_x = np.array([[-a, 0, a], [-b, 0, b], [-a, 0, a]])
-    H_y = np.array([[-a, -b, -a], [0, 0, 0], [a, b, a]])
-    I_x = skimage.filters.gaussian(convolve(I, H_x), sigma=0)
-    I_y = skimage.filters.gaussian(convolve(I, H_y), sigma=0)
-    print('graidnet over')
-    print(I_x.shape, I_y.shape)
-    return I_x, I_y
+class TRND(nn.Module):
+    def __init__(self, k=10, n_channels=8, image_channels=1, kernel_size=3):
+        super(DnCNN, self).__init__()
+        kernel_size = 3
+        padding = 1
+        self.difflayer = nn.Conv2d(in_channels=image_channels, out_channels=n_channels,
+                                   kernel_size=kernel_size, padding=padding, bias=True)
+        self.difflayer = nn.Conv2d(in_channels=image_channels, out_channels=n_channels,
+                                   kernel_size=kernel_size, padding=padding, bias=True)
+
+    def forward(self, x):
+        feature_map = self.difflayer(x)
+        print(feature_map.size)
+
+        return feature_map
 
 
-def imhessian(I):
-    H_xx = np.array([[0, 0, 0], [1, -2, 1], [0, 0, 0]])
-    H_yy = np.array([[0, 1, 0], [0, -2, 0], [0, 1, 0]])
-    H_xy = np.array([[0.25, 0, -0.25], [0, 0, 0], [-0.25, 0, 0.25]])
-    I_xx = skimage.filters.gaussian(convolve(I, H_xx), sigma=0)
-    I_yy = skimage.filters.gaussian(convolve(I, H_yy), sigma=0)
-    I_xy = skimage.filters.gaussian(convolve(I, H_xy), sigma=0)
-    print('hessina over')
-    return I_xx, I_yy, I_xy
+class RNN(nn.Module):
+    def __init__(self, input_size, hidden_size, output_size):
+        super(RNN, self).__init__()
+        kernel_size = 3
+        padding = 1
+        pipe_line = []
+        pipe_line.append(nn.Conv2d(in_channels=image_channels, out_channels=n_channels,
+                                   kernel_size=kernel_size, padding=padding, bias=True))
+        pipe_line.append(nn.ReLU(inplace=True))
+        pipe_line.append(nn.Conv2d(in_channels=image_channels, out_channels=n_channels,
+                                   kernel_size=kernel_size, padding=padding, bias=True))
+        self.dncnn1 = nn.Sequential(*pipe_line)
+
+        self.hidden_size = hidden_size
+
+        self.i2h = nn.Sequential(*pipe_line)
+        #self.i2o = nn.Linear(input_size + hidden_size, output_size)
+        self.softmax = nn.LogSoftmax(dim=1)
+
+    def forward(self, input, hidden):
+        combined = torch.cat((input, hidden), 1)
+        hidden = self.i2h(combined)
+        #output = self.i2o(combined)
+        #output = self.softmax(output)
+        return output, hidden
+
+    def initHidden(self):
+        return torch.zeros(1, self.hidden_size)
 
 
-def structur_matrix(I_x, I_y):
-    G_0 = I_x**2
-    G_1 = I_x*I_y
-    G_2 = I_y**2
-    print('s_matrix over')
-    return G_0, G_1, G_2
+class TD_AD():
+    def __init__(self, img, T=10):
+        self.img = img
+        self.T = T
 
+    def imgradient(I):
+        a = (2-np.sqrt(2))/4
+        b = (np.sqrt(2)-1)/2
+        H_x = np.array([[-a, 0, a], [-b, 0, b], [-a, 0, a]])
+        H_y = np.array([[-a, -b, -a], [0, 0, 0], [a, b, a]])
+        I_x = skimage.filters.gaussian(convolve(I, H_x), sigma=0)
+        I_y = skimage.filters.gaussian(convolve(I, H_y), sigma=0)
+        print('graidnet over')
+        print(I_x.shape, I_y.shape)
+        return I_x, I_y
 
-def calculate_eigs(g):
-    w, v = LA.eig(g)
-    lambda1 = w[0]
-    e1 = np.array([row[0] for row in v])
-    lambda2 = w[1]
-    e2 = np.array([row[1] for row in v])
-    return lambda1, lambda2, e1, e2
+    def imhessian(I):
+        H_xx = np.array([[0, 0, 0], [1, -2, 1], [0, 0, 0]])
+        H_yy = np.array([[0, 1, 0], [0, -2, 0], [0, 1, 0]])
+        H_xy = np.array([[0.25, 0, -0.25], [0, 0, 0], [-0.25, 0, 0.25]])
+        I_xx = skimage.filters.gaussian(convolve(I, H_xx), sigma=0)
+        I_yy = skimage.filters.gaussian(convolve(I, H_yy), sigma=0)
+        I_xy = skimage.filters.gaussian(convolve(I, H_xy), sigma=0)
+        print('hessina over')
+        return I_xx, I_yy, I_xy
 
+    def structur_matrix(I_x, I_y):
+        G_0 = I_x**2
+        G_1 = I_x*I_y
+        G_2 = I_y**2
+        print('s_matrix over')
+        return G_0, G_1, G_2
 
-def A_matrix(lambda_1, e1, lambda_2, e2, a1=0.5, a2=0.9):
-    c1 = 1/np.power(1+lambda_1+lambda_2, a1)
-    c2 = 1/np.power(1+lambda_1+lambda_2, a2)
-    x1 = e1[0]
-    y1 = e1[1]
-    a0 = c1*y1**2+c2*x1**2
-    a1 = (c2-c1)*x1*y1
-    a2 = c1*x1**2+c2*y1**2
-    return a0, a1, a2
+    def calculate_eigs(g):
+        w, v = LA.eig(g)
+        lambda1 = w[0]
+        e1 = np.array([row[0] for row in v])
+        lambda2 = w[1]
+        e2 = np.array([row[1] for row in v])
+        return lambda1, lambda2, e1, e2
 
+    def A_matrix(lambda_1, e1, lambda_2, e2, a1=0.5, a2=0.9):
+        c1 = 1/np.power(1+lambda_1+lambda_2, a1)
+        c2 = 1/np.power(1+lambda_1+lambda_2, a2)
+        x1 = e1[0]
+        y1 = e1[1]
+        a0 = c1*y1**2+c2*x1**2
+        a1 = (c2-c1)*x1*y1
+        a2 = c1*x1**2+c2*y1**2
+        return a0, a1, a2
 
-def update_beta_k(G0, G1, G2, I_xx, I_yy, I_xy):
-    m, n = G0.shape
-    A0 = np.zeros((m, n))
-    A1 = np.zeros((m, n))
-    A2 = np.zeros((m, n))
-    for i in range(m):
-        for j in range(n):
-            g_0 = G0[i, j]
-            g_1 = G1[i, j]
-            g_2 = G2[i, j]
-            G_u = np.array([[g_0, g_1], [g_1, g_2]])
-            l1, l2, e1, e2 = calculate_eigs(G_u)
-            a0, a1, a2 = A_matrix(l1, e1, l2, e2)
-            A0[i, j] = a0
-            A1[i, j] = a1
-            A2[i, j] = a2
-    beta_k = A0*I_xx+2*A1*I_xy+A2*I_yy
-    return beta_k
+    def update_beta_k(G0, G1, G2, I_xx, I_yy, I_xy):
+        m, n = G0.shape
+        A0 = np.zeros((m, n))
+        A1 = np.zeros((m, n))
+        A2 = np.zeros((m, n))
+        for i in range(m):
+            for j in range(n):
+                g_0 = G0[i, j]
+                g_1 = G1[i, j]
+                g_2 = G2[i, j]
+                G_u = np.array([[g_0, g_1], [g_1, g_2]])
+                l1, l2, e1, e2 = calculate_eigs(G_u)
+                a0, a1, a2 = A_matrix(l1, e1, l2, e2)
+                A0[i, j] = a0
+                A1[i, j] = a1
+                A2[i, j] = a2
+        beta_k = A0*I_xx+2*A1*I_xy+A2*I_yy
+        return beta_k
 
+    def update_alpha(b, d_t=1):
+        return d_t/np.max(np.abs(b))
 
-def update_alpha(b, d_t=1):
-    return d_t/np.max(np.abs(b))
-
-
-def update_image(I, alpha, beta_k):
-    delta_I = alpha*beta_k
-    return I+delta_I
+    def update_image(I, alpha, beta_k):
+        delta_I = alpha*beta_k
+        return I+delta_I
 
 
 if __name__ == "__main__":
