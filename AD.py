@@ -165,7 +165,7 @@ class TRND(nn.Module):
         self.diff_layers = nn.ModuleList([nn.Conv2d(
             in_channels=k, out_channels=k, kernel_size=kernel_size, padding=padding, bias=False, groups=k) for i in range(T)])
 
-    def g(self, d_I, mode=1):
+    def g(self, d_I, mode=1):   
         if mode == 1:
             exponent = -torch.abs(d_I)/(1+d_I**2)
             res = torch.exp(exponent)*d1
