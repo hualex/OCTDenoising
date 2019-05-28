@@ -30,6 +30,8 @@ class TRND(nn.Module):
             res = torch.reciprocal(1+d_I**2)
         elif mode == 3:
             res = torch.sqrt(1+d_I**2)
+        elif mode == 4:
+            res = torch.exp(-1*d_I**2)
         return res
 
     def diffusion(self, x, diff_layer, mode=2):

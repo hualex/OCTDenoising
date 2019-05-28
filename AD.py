@@ -17,7 +17,7 @@ class PM_AD():
         self.image = img
         self.T = T
 
-    def g(gradient, mode=1, k=60):
+    def g(self, gradient, mode=1, k=60):
         if mode == 4:
             dk_term = np.abs(gradient)/(2.*k)
             dk_term[dk_term > 1] = 1
@@ -34,7 +34,7 @@ class PM_AD():
             result = np.power(1-np.power(dk_term, 2), 2)
         return result
 
-    def dmaps(data):
+    def dmaps(self, data):
         d0_filter = np.array([[0, 0, 0], [0, -1, 1], [0, 0, 0]])
         d0 = convolve(data, d0_filter, mode='reflect')
         d1_filter = np.array([[0, 0, 0], [0, -1, 0], [0, 1, 0]])
@@ -45,24 +45,29 @@ class PM_AD():
         d3 = convolve(data, d3_filter, mode='reflect')
         return (d0, d1, d2, d3)
 
-    def update_image(I, dmap, alpha=0.2, mode=1, k=50):
+    def update_image(self, I, dmap, alpha=0.2, mode=1, k=50):
         """
-
         Principles_Of_Digital_ImageProces_Advanced
         DOI 10.1007/978-1-84882-919-0
-
-
         """
         delta_I = np.zeros_like(I, dtype=float)
         for d in dmap:
-            est_k = estimate_k(d)
-            delta_I += alpha*g(d, mode=mode, k=est_k)*d
+            est_k = self.estimate_k(d)
+            delta_I += alpha*self.g(d, mode=mode, k=est_k)*d
         return I+delta_I
 
-    def estimate_k(dmap):
+    def estimate_k(self, dmap):
         k = np.median(np.abs(dmap-np.abs(np.median(dmap))))
         # print(k)
         return k
+
+    def apply_diffusion(self):
+        I = self.image
+        T = self.T
+        for _ in range(T):
+            dmaps = self.dmaps(I)
+            I = self.update_image(I, dmaps)
+        return I
 
 
 class TD_AD():
@@ -165,7 +170,7 @@ class TRND(nn.Module):
         self.diff_layers = nn.ModuleList([nn.Conv2d(
             in_channels=k, out_channels=k, kernel_size=kernel_size, padding=padding, bias=False, groups=k) for i in range(T)])
 
-    def g(self, d_I, mode=1):   
+    def g(self, d_I, mode=1):
         if mode == 1:
             exponent = -torch.abs(d_I)/(1+d_I**2)
             res = torch.exp(exponent)*d1
@@ -173,9 +178,11 @@ class TRND(nn.Module):
             res = torch.reciprocal(1+d_I**2)*d_I
         elif mode == 3:
             res = torch.sqrt(1+d_I**2)*d_I
+        elif mode == 4:
+            res = torch.exp(-1*d_I**2)
         return res
 
-    def diffusion(self, x, diff_layer, mode=2):
+    def diffusion(self, x, diff_layer, mode=4):
         n, c, h, w = x.size()
         input_x = torch.zeros(n, self.k, h, w).cuda()+x
         sum_delta = torch.zeros(n, 1, h, w).cuda()
@@ -195,34 +202,6 @@ class TRND(nn.Module):
         return y
 
 
-data_orig = skimage.img_as_float(binary_blobs(length=128, seed=1))
-#data_orig = skimage.img_as_float(rgb2gray(chelsea()[100:250, 50:300]))
-#data_orig = skimage.img_as_float(skimage.io.imread('DME.jpeg'))
-
-sigma = 0.2
-data = random_noise(data_orig, var=sigma**2)*255
-# print(data)
-
-
-I = data
-for T in range(10000):
-    if estimate_sigma(I/255.) <= estimate_sigma(data_orig) or compare_psnr(data_orig, I/255.) < compare_psnr(data_orig, data/255.):
-        print("t=", T)
-        break
-    dmap = dmaps(I)
-    I = update_image(I, dmap, mode=2, k=50)
-plt.figure(figsize=(20, 20))
-plt.subplot(131)
-plt.imshow(data_orig, cmap='gray')
-plt.subplot(132)
-plt.imshow(data, cmap='gray')
-plt.subplot(133)
-plt.imshow(I, cmap='gray')
-plt.show()
-print(compare_psnr(data_orig, I/255.), compare_psnr(data_orig, data/255.))
-print(compare_mse(data_orig, I/255.), compare_mse(data_orig, data/255.))
-print(estimate_sigma(data/255.), estimate_sigma(data_orig), estimate_sigma(I/255.))
-
 if __name__ == "__main__":
     data_orig = skimage.img_as_float(binary_blobs(length=128, seed=1))
     sigma = 0.2
@@ -239,11 +218,3 @@ if __name__ == "__main__":
     plt.subplot(133)
     plt.imshow(I, cmap='gray')
     plt.show()
-
-
-"""
-Todo:
-1. Stopping time ?
-2. other g function ?
-3. optimum setting for alpha,k through machine learning ?
-"""
