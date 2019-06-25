@@ -102,6 +102,7 @@ class TD_AD():
             I = self.update_image(I, alpha, beta_k)
         return I
 
+
 class Deep_AD_F(nn.Module):
     def __init__(self, k=4, T=3, image_channels=1, kernel_size=3):
         super(Deep_AD_F, self).__init__()
@@ -159,6 +160,7 @@ class Deep_AD_F(nn.Module):
             in_x = in_x - self.squash_tensor(features)/self.k
         y = in_x
         return y
+
 
 class PM_AD():
     def __init__(self, img, T):
@@ -218,6 +220,7 @@ class PM_AD():
             I = self.update_image(I, dmaps)
         return I
 
+
 class Deep_AD(nn.Module):
     def __init__(self, k=4, T=3, image_channels=1, kernel_size=3):
         super(Deep_AD, self).__init__()
@@ -257,6 +260,51 @@ class Deep_AD(nn.Module):
             in_x = in_x - self.squash_tensor(features)/self.k
         y = in_x
         return y
+
+class Deep_AD_relu(nn.Module):
+    def __init__(self, k=4, T=3, image_channels=1, kernel_size=3, g_mode=4):
+        super(Deep_AD_relu, self).__init__()
+        self.kernel_size = kernel_size
+        padding = int((kernel_size-1)/2)
+        self.k = k
+        self.T = T
+        self.g_mode = 4
+        self.diff_layers = nn.ModuleList([nn.Conv2d(
+            in_channels=1, out_channels=k, kernel_size=kernel_size, padding=padding, bias=True) for i in range(T)])
+        self.prelu_layers = nn.ModuleList([nn.PReLU() for i in range(T)])
+
+    def g(self, d_I, mode=1):
+        if mode == 1:
+            exponent = -torch.abs(d_I)/(1+d_I**2)
+            res = torch.exp(exponent)
+        elif mode == 2:
+            res = torch.reciprocal(1+d_I**2)
+        elif mode == 3:
+            res = torch.sqrt(1+d_I**2)
+        elif mode == 4:
+            res = torch.exp(-1*d_I**2)
+        return res
+
+    def squash_tensor(self, x):
+        n, c, h, w = x.size()
+        x_squashed = torch.zeros(n, 1, h, w).cuda()
+        for i in range(self.k):
+            f = x[:, i, :, :]
+            f.unsqueeze_(1)
+            x_squashed = x_squashed+f
+        return x_squashed
+
+    def forward(self, x):
+        in_x = x
+        for i in range(self.T):
+            diff_layer = self.diff_layers[i]
+            prelu_layer = self.prelu_layers[i]
+            d_feature = diff_layer(in_x)
+            features = prelu_layer(d_feature)*d_feature
+            in_x = in_x - self.squash_tensor(features)/self.k
+        y = in_x
+        return y
+
 
 if __name__ == "__main__":
     from PIL import Image
