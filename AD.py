@@ -273,6 +273,7 @@ class Deep_AD_relu(nn.Module):
             in_channels=1, out_channels=k, kernel_size=kernel_size, padding=padding, bias=True) for i in range(T)])
         self.prelu_layers = nn.ModuleList([nn.PReLU() for i in range(T)])
 
+
     def g(self, d_I, mode=1):
         if mode == 1:
             exponent = -torch.abs(d_I)/(1+d_I**2)
@@ -296,12 +297,17 @@ class Deep_AD_relu(nn.Module):
 
     def forward(self, x):
         in_x = x
+        pseudo_noise_block = []
         for i in range(self.T):
             diff_layer = self.diff_layers[i]
             prelu_layer = self.prelu_layers[i]
             d_feature = diff_layer(in_x)
             features = prelu_layer(d_feature)*d_feature
-            in_x = in_x - self.squash_tensor(features)/self.k
+            temp_noise_block = self.squash_tensor(features)/self.k
+            in_x = in_x - temp_noise_block
+            if not self.training:
+                pseudo_noise_block.append(temp_noise_block)
+
         y = in_x
         return y
 

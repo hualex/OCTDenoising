@@ -126,6 +126,7 @@ class TRND(nn.Module):
 if __name__ == "__main__":
     img, _ = random.choice(dataset_val)
     total_psnr = 0.0
+    torch.randn()
     i = 0
     for img, _ in dataset_val:
         i = i+1
