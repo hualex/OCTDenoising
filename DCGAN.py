@@ -19,7 +19,7 @@ from IPython.display import HTML
 
 
 class ResidueBlock(nn.Module):
-    def __init__(self, n_channels=6, kernel_size=3, padding=1):
+    def __init__(self, n_channels=64, kernel_size=3, padding=1):
         super(ResidueBlock, self).__init__()
         before_sum_layers = []
         after_sum_layers = []
@@ -44,7 +44,7 @@ class ResidueBlock(nn.Module):
 
 
 class DCGAN_Generator(nn.Module):
-    def __init__(self, depth=5, n_channels=6, image_channels=1, kernel_size=3, padding=1):
+    def __init__(self, depth=5, n_channels=64, image_channels=1, kernel_size=3, padding=1):
         super(DCGAN_Generator, self).__init__()
         layers = []
         layers.append(nn.Conv2d(in_channels=image_channels, out_channels=n_channels,
@@ -68,27 +68,36 @@ class DCGAN_Generator(nn.Module):
         return out
 
 
-class OCTResNet(nn.Module):
-    def __init__(self):
-        super(OCTResNet, self).__init__()
-
-        self.conv1 = torch.nn.Conv2d(1, 3,
-                                     kernel_size=(3, 3),
-                                     stride=(2, 2),
-                                     padding=(0, 0), bias=False)
-        self.resnet18 = torchvision.models.resnet18(pretrained=True)
-        self.minst_resnet = torch.nn.Sequential(self.conv1, self.resnet18)
-
-    def forward(self, x):
-        return self.minst_resnet(x)
-
-
 class DCGAN_Discriminator(nn.Module):
-    def __init__(self):
+    def __init__(self, image_channels=1, n_channels=64):
         super(DCGAN_Discriminator, self).__init__()
-        self.dis = nn.Sequential(OCTResNet(),
-                                 nn.Linear(1000, 1),
-                                 nn.Tanh())
+        layers = []
+
+        layers.append(nn.Conv2d(in_channels=image_channels,
+                                out_channels=n_channels, kernel_size=3, stride=1))
+        layers.append(nn.LeakyReLU())
+
+        for i in range(3):
+            in_channels = n_channels
+            layers.append(nn.Conv2d(in_channels=in_channels,
+                                    out_channels=n_channels, kernel_size=3, stride=2))
+            layers.append(nn.BatchNorm2d(num_features=n_channels))
+            layers.append(nn.LeakyReLU())
+            layers.append(nn.Conv2d(in_channels=n_channels,
+                                    out_channels=n_channels*2, kernel_size=3, stride=1))
+            layers.append(nn.BatchNorm2d(num_features=n_channels*2))
+            layers.append(nn.LeakyReLU())
+            n_channels = n_channels*2
+        layers.append(nn.Conv2d(in_channels=n_channels,
+                                out_channels=n_channels, kernel_size=3, stride=2))
+        layers.append(nn.BatchNorm2d(num_features=n_channels))
+        layers.append(nn.LeakyReLU())
+        layers.append(nn.AdaptiveAvgPool2d(output_size=(1, 1)))
+        layers.append(nn.Conv2d(in_channels=n_channels,
+                                out_channels=1, kernel_size=1, stride=1))
+        #layers.append(nn.Linear(in_features=1024, out_features=1))
+        layers.append(nn.Tanh())
+        self.dis = nn.Sequential(*layers)
 
     def forward(self, x):
         return self.dis(x)
