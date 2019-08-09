@@ -106,7 +106,8 @@ class DCGAN_Discriminator(nn.Module):
 class DCGAN(nn.Module):
     def __init__(self):
         super(DCGAN, self).__init__()
-        self.generator = DCGAN_Generator()
+        #self.generator = DCGAN_Generator()
+        self.generator = Deep_AD_relu()
         self.discriminator = DCGAN_Discriminator()
 
     def generator_forward(self, z):
@@ -116,3 +117,51 @@ class DCGAN(nn.Module):
     def discriminator_forward(self, img):
         pred = self.discriminator(img)
         return pred.view(-1)
+
+
+class Deep_AD_relu(nn.Module):
+    def __init__(self, k=4, T=5, image_channels=1, kernel_size=5):
+        super(Deep_AD_relu, self).__init__()
+        self.kernel_size = kernel_size
+        padding = int((kernel_size-1)/2)
+        self.k = k
+        self.T = T
+        self.p = []
+        #self.orig_image = []
+        # self.denoised_image=[]
+
+        self.diff_layers = nn.ModuleList([nn.Conv2d(
+            in_channels=1, out_channels=k, kernel_size=kernel_size, padding=padding, bias=True) for i in range(T)])
+        #self.prelu_layers = nn.ModuleList([nn.PReLU() for i in range(T)])
+        #self.prelu_layers = nn.ModuleList([nn.Tanh() for i in range(T)])
+        self.prelu_layers = nn.ModuleList([nn.Softmax2d() for i in range(T)])
+
+    def squash_tensor(self, x):
+        n, c, h, w = x.size()
+        x_squashed = torch.zeros(n, 1, h, w).cuda()
+        for i in range(self.k):
+            f = x[:, i, :, :]
+            f.unsqueeze_(1)
+            x_squashed = x_squashed+f
+        return x_squashed
+
+    def forward(self, x):
+        in_x = x
+        pseudo_noise_block = []
+        for i in range(self.T):
+            diff_layer = self.diff_layers[i]
+            prelu_layer = self.prelu_layers[i]
+            d_feature = diff_layer(in_x)
+            #features = prelu_layer(torch.abs(d_feature))*d_feature
+            features = prelu_layer(torch.abs(d_feature))*d_feature
+            temp_noise_block = self.squash_tensor(features)/self.k
+            in_x = in_x - temp_noise_block
+            if not self.training:
+                pseudo_noise_block.append(temp_noise_block)
+
+        if not self.training:
+            self.p = pseudo_noise_block
+            # self.orig_image.append(x)
+            # self.denoised_image.append(in_x)
+        y = in_x
+        return y
