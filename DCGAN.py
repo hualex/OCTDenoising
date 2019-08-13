@@ -9,6 +9,7 @@ import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torch.optim as optim
 import torch.utils.data
+import torchvision.models as models
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
 import torchvision.utils as vutils
@@ -21,25 +22,16 @@ from IPython.display import HTML
 class ResidueBlock(nn.Module):
     def __init__(self, n_channels=64, kernel_size=3, padding=1):
         super(ResidueBlock, self).__init__()
-        before_sum_layers = []
-        after_sum_layers = []
-        for _ in range(2):
-            before_sum_layers.append(nn.Conv2d(in_channels=n_channels, out_channels=n_channels,
-                                               kernel_size=kernel_size, padding=padding, bias=False))
-            before_sum_layers.append(nn.BatchNorm2d(
-                n_channels, eps=0.0001, momentum=0.95))
-            before_sum_layers.append(nn.ReLU(inplace=True))
-        after_sum_layers.append(nn.BatchNorm2d(
-            n_channels, eps=0.0001, momentum=0.95))
-        after_sum_layers.append(nn.ReLU(inplace=True))
-        after_sum_layers.append(nn.Conv2d(in_channels=n_channels, out_channels=n_channels,
-                                          kernel_size=kernel_size, padding=padding, bias=False))
-        self.before_sum = nn.Sequential(*before_sum_layers)
-        self.after_sum = nn.Sequential(*after_sum_layers)
+        layers = []
+        layers.append(nn.Conv2d(in_channels=n_channels, out_channels=n_channels,
+                                kernel_size=kernel_size, padding=padding, bias=False))
+        layers.append(nn.BatchNorm2d(n_channels, eps=0.0001, momentum=0.95))
+        layers.append(nn.ReLU(inplace=True))
+        self.conv_layers = nn.Sequential(*layers)
 
     def forward(self, x):
-        y = self.before_sum(x)
-        out = self.after_sum(y+x)
+        y = self.conv_layers(x)
+        out = y+x
         return out
 
 
@@ -53,14 +45,9 @@ class DCGAN_Generator(nn.Module):
         for _ in range(depth):
             layers.append(ResidueBlock(n_channels=n_channels,
                                        kernel_size=kernel_size, padding=padding))
-        for _ in range(2):
-            layers.append(nn.Conv2d(in_channels=n_channels, out_channels=n_channels,
-                                    kernel_size=kernel_size, padding=padding, bias=False))
-            layers.append(nn.ReLU(inplace=True))
         layers.append(nn.Conv2d(in_channels=n_channels, out_channels=image_channels,
                                 kernel_size=kernel_size, padding=padding, bias=False))
         layers.append(nn.Sigmoid())
-
         self.dcgan = nn.Sequential(*layers)
 
     def forward(self, x):
@@ -117,6 +104,16 @@ class DCGAN(nn.Module):
     def discriminator_forward(self, img):
         pred = self.discriminator(img)
         return pred.view(-1)
+
+class DCGAN_Generator_VGG(nn.Module):
+    def __init__(self):
+        super(DCGAN_Generator_VGG, self).__init__()
+        #self.generator = DCGAN_Generator()
+        self.generator =models.vgg13() 
+
+    def forward(self, img):
+        out = self.generator(img)
+        return out 
 
 
 class Deep_AD_relu(nn.Module):
