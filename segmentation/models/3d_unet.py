@@ -21,23 +21,29 @@ class H5Dataset(Dataset):
         data = np.swapaxes(self.h5f[idx_key], 0, 1)
         if self.transform:
             data = self.transform(data)
-        return data
+        return (idx, data)
 
 
 class UNet_3D(nn.Module):
     def __init__(self, n_channels, n_classes):
         super(UNet_3D, self).__init__()
         self.conv_in = nn.Sequential(
-            convBlock(1, 3),
-            convBlock(3, 8),
-            convBlock(8, 16)
+            #convBlock(1, 3),
+            convBlock(1, 4),
+            convBlock(4, 8)
         )
-        self.down_1 = downBlock(16, 32)
-        self.down_2 = downBlock(32, 64)
-        self.up_1 = upBlock(96, 32)
-        self.up_2 = upBlock(192, 64)
-        self.bottom = bottomBlock(64, 128)
-        self.conv_out = outBlock(48, 16)
+        #self.down_1 = downBlock(16, 32)
+        self.down_1 = downBlock(8, 16)
+        #self.down_2 = downBlock(32, 64)
+        self.down_2 = downBlock(16, 32)
+        #self.up_1 = upBlock(96, 32)
+        self.up_1 = upBlock(48, 16)
+        #self.up_2 = upBlock(192, 64)
+        self.up_2 = upBlock(96, 32)
+        #self.bottom = bottomBlock(64, 128)
+        self.bottom = bottomBlock(32, 64)
+        #self.conv_out = outBlock(48, 16)
+        self.conv_out = outBlock(24, 8)
 
     def forward(self, x):
         x_in = self.conv_in(x)
